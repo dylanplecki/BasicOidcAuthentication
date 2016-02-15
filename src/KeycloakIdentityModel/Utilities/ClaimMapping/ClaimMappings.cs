@@ -63,6 +63,11 @@ namespace KeycloakIdentityModel.Utilities.ClaimMapping
             {
                 ClaimName = ClaimTypes.Role,
                 JSelectQuery = "resource_access.{gid}.roles"
+            },
+            new ClaimLookup
+            {
+                ClaimName = ClaimTypes.Role,
+                JSelectQuery = "realm_access.roles"
             }
         };
 
