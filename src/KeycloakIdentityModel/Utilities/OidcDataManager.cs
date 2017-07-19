@@ -5,7 +5,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using KeycloakIdentityModel.Models.Configuration;
 using KeycloakIdentityModel.Utilities.Synchronization;
-using Microsoft.IdentityModel.Protocols;
+using Protocols = Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -31,13 +32,11 @@ namespace KeycloakIdentityModel.Utilities
             _nextCachedRefreshTime = DateTime.Now;
 
             Authority = _options.KeycloakUrl + "/realms/" + _options.Realm;
-            MetadataEndpoint = new Uri(Authority + "/" + OpenIdProviderMetadataNames.Discovery);
-            TokenValidationEndpoint = new Uri(Authority + "/tokens/validate");
+            MetadataEndpoint = new Uri(Authority + "/" + Protocols.OpenIdProviderMetadataNames.Discovery);
         }
 
         public string Authority { get; }
         public Uri MetadataEndpoint { get; }
-        public Uri TokenValidationEndpoint { get; }
 
         private class Metadata
         {
@@ -52,9 +51,7 @@ namespace KeycloakIdentityModel.Utilities
             public Uri TokenEndpoint;
             public Uri UserInfoEndpoint;
         }
-
-        #region Context Caching
-
+		
         public static Task ValidateCachedContextAsync(IKeycloakParameters options)
         {
             var context = GetCachedContext(options.AuthenticationType);
@@ -114,11 +111,7 @@ namespace KeycloakIdentityModel.Utilities
             if (preload) await newContext.ValidateCachedContextAsync();
             return newContext;
         }
-
-        #endregion
-
-        #region Metadata Handling
-
+		
         public async Task<bool> TryRefreshMetadataAsync()
         {
             try
@@ -155,22 +148,22 @@ namespace KeycloakIdentityModel.Utilities
             try
             {
                 // Preload required data fields
-                var jwksEndpoint = new Uri(json[OpenIdProviderMetadataNames.JwksUri].ToString());
+                var jwksEndpoint = new Uri(json[Protocols.OpenIdProviderMetadataNames.JwksUri].ToString());
                 var jwks = new JsonWebKeySet(await HttpApiGet(jwksEndpoint));
 
                 using (new WriterGuard(_metadata.Lock))
                 {
                     _metadata.Jwks = jwks;
                     _metadata.JwksEndpoint = jwksEndpoint;
-                    _metadata.Issuer = json[OpenIdProviderMetadataNames.Issuer].ToString();
+                    _metadata.Issuer = json[Protocols.OpenIdProviderMetadataNames.Issuer].ToString();
                     _metadata.AuthorizationEndpoint =
-                        new Uri(json[OpenIdProviderMetadataNames.AuthorizationEndpoint].ToString());
+                        new Uri(json[Protocols.OpenIdProviderMetadataNames.AuthorizationEndpoint].ToString());
                     _metadata.TokenEndpoint =
-                        new Uri(json[OpenIdProviderMetadataNames.TokenEndpoint].ToString());
+                        new Uri(json[Protocols.OpenIdProviderMetadataNames.TokenEndpoint].ToString());
                     _metadata.UserInfoEndpoint =
-                        new Uri(json[OpenIdProviderMetadataNames.UserInfoEndpoint].ToString());
+                        new Uri(json[Protocols.OpenIdProviderMetadataNames.UserInfoEndpoint].ToString());
                     _metadata.EndSessionEndpoint =
-                        new Uri(json[OpenIdProviderMetadataNames.EndSessionEndpoint].ToString());
+                        new Uri(json[Protocols.OpenIdProviderMetadataNames.EndSessionEndpoint].ToString());
 
                     // Check for values
                     if (_metadata.AuthorizationEndpoint == null || _metadata.TokenEndpoint == null ||
@@ -203,11 +196,7 @@ namespace KeycloakIdentityModel.Utilities
 
             return await response.Content.ReadAsStringAsync();
         }
-
-        #endregion
-
-        #region Metadata Info Getters
-
+		
         public Uri GetCallbackUri(Uri baseUri)
         {
             return new Uri(baseUri.GetLeftPart(UriPartial.Authority) + _options.CallbackPath);
@@ -268,29 +257,25 @@ namespace KeycloakIdentityModel.Utilities
                 return _metadata.Jwks;
             }
         }
-
-        #endregion
-
-        #region Endpoint Content Builders
-
+		
         public HttpContent BuildAuthorizationEndpointContent(Uri requestUri, string state)
         {
             // Create parameter dictionary
             var parameters = new Dictionary<string, string>
             {
-                {OpenIdConnectParameterNames.RedirectUri, GetCallbackUri(requestUri).ToString()},
-                {OpenIdConnectParameterNames.ResponseType, _options.ResponseType},
-                {OpenIdConnectParameterNames.Scope, _options.Scope},
-                {OpenIdConnectParameterNames.State, state}
+                {Protocols.OpenIdConnectParameterNames.RedirectUri, GetCallbackUri(requestUri).ToString()},
+                {Protocols.OpenIdConnectParameterNames.ResponseType, _options.ResponseType},
+                {Protocols.OpenIdConnectParameterNames.Scope, _options.Scope},
+                {Protocols.OpenIdConnectParameterNames.State, state}
             };
 
             // Add optional parameters
             if (!string.IsNullOrWhiteSpace(_options.ClientId))
             {
-                parameters.Add(OpenIdConnectParameterNames.ClientId, _options.ClientId);
+                parameters.Add(Protocols.OpenIdConnectParameterNames.ClientId, _options.ClientId);
 
                 if (!string.IsNullOrWhiteSpace(_options.ClientSecret))
-                    parameters.Add(OpenIdConnectParameterNames.ClientSecret, _options.ClientSecret);
+                    parameters.Add(Protocols.OpenIdConnectParameterNames.ClientSecret, _options.ClientSecret);
             }
 
             if (!string.IsNullOrWhiteSpace(_options.IdentityProvider))
@@ -304,18 +289,18 @@ namespace KeycloakIdentityModel.Utilities
             // Create parameter dictionary
             var parameters = new Dictionary<string, string>
             {
-                {OpenIdConnectParameterNames.RedirectUri, GetCallbackUri(baseUri).ToString()},
-                {OpenIdConnectParameterNames.GrantType, "authorization_code"},
-                {OpenIdConnectParameterNames.Code, code}
+                {Protocols.OpenIdConnectParameterNames.RedirectUri, GetCallbackUri(baseUri).ToString()},
+                {Protocols.OpenIdConnectParameterNames.GrantType, "authorization_code"},
+                {Protocols.OpenIdConnectParameterNames.Code, code}
             };
 
             // Add optional parameters
             if (!string.IsNullOrWhiteSpace(_options.ClientId))
             {
-                parameters.Add(OpenIdConnectParameterNames.ClientId, _options.ClientId);
+                parameters.Add(Protocols.OpenIdConnectParameterNames.ClientId, _options.ClientId);
 
                 if (!string.IsNullOrWhiteSpace(_options.ClientSecret))
-                    parameters.Add(OpenIdConnectParameterNames.ClientSecret, _options.ClientSecret);
+                    parameters.Add(Protocols.OpenIdConnectParameterNames.ClientSecret, _options.ClientSecret);
             }
 
             return new FormUrlEncodedContent(parameters);
@@ -326,18 +311,18 @@ namespace KeycloakIdentityModel.Utilities
             // Create parameter dictionary
             var parameters = new Dictionary<string, string>
             {
-                {OpenIdConnectParameterNames.GrantType, "refresh_token"},
-                {OpenIdConnectParameterNames.Scope, _options.Scope},
+                {Protocols.OpenIdConnectParameterNames.GrantType, "refresh_token"},
+                {Protocols.OpenIdConnectParameterNames.Scope, _options.Scope},
                 {"refresh_token", refreshToken}
             };
 
             // Add optional parameters
             if (!string.IsNullOrWhiteSpace(_options.ClientId))
             {
-                parameters.Add(OpenIdConnectParameterNames.ClientId, _options.ClientId);
+                parameters.Add(Protocols.OpenIdConnectParameterNames.ClientId, _options.ClientId);
 
                 if (!string.IsNullOrWhiteSpace(_options.ClientSecret))
-                    parameters.Add(OpenIdConnectParameterNames.ClientSecret, _options.ClientSecret);
+                    parameters.Add(Protocols.OpenIdConnectParameterNames.ClientSecret, _options.ClientSecret);
             }
 
             return new FormUrlEncodedContent(parameters);
@@ -351,7 +336,7 @@ namespace KeycloakIdentityModel.Utilities
 
             // Add optional parameters
             if (!string.IsNullOrWhiteSpace(idToken))
-                parameters.Add(OpenIdConnectParameterNames.IdTokenHint, idToken);
+                parameters.Add(Protocols.OpenIdConnectParameterNames.IdTokenHint, idToken);
 
             // Add postLogoutRedirectUrl to parameters
             if (string.IsNullOrEmpty(postLogoutRedirectUrl))
@@ -365,11 +350,10 @@ namespace KeycloakIdentityModel.Utilities
             if (!Uri.IsWellFormedUriString(postLogoutRedirectUrl, UriKind.RelativeOrAbsolute))
                 throw new Exception("Invalid PostLogoutRedirectUrl option: Not a valid relative/absolute URL");
 
-            parameters.Add(OpenIdConnectParameterNames.PostLogoutRedirectUri, postLogoutRedirectUrl);
+            parameters.Add(Protocols.OpenIdConnectParameterNames.PostLogoutRedirectUri, postLogoutRedirectUrl);
 
             return new FormUrlEncodedContent(parameters);
         }
-
-        #endregion
+		
     }
 }

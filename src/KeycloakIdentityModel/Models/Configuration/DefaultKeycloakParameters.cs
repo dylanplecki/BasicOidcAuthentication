@@ -72,7 +72,7 @@ namespace KeycloakIdentityModel.Models.Configuration
         ///     - If enabled, this will create a MASSIVE security hole
         ///     - Default: False
         /// </remarks>
-        public bool DisableTokenSignatureValidation { get; set; } = false;
+        public bool DisableIssuerSigningKeyValidation { get; set; } = false;
 
         /// <summary>
         ///     OPTIONAL.ADV: Whether to allow the extension to accept unsigned tokens
