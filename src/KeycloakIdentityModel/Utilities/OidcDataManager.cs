@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using KeycloakIdentityModel.Models.Configuration;
 using KeycloakIdentityModel.Utilities.Synchronization;
 using Microsoft.IdentityModel.Protocols;
+using Microsoft.Owin;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -21,16 +22,20 @@ namespace KeycloakIdentityModel.Utilities
         private readonly IKeycloakParameters _options;
         private readonly ReaderWriterLockSlim _refreshLock = new ReaderWriterLockSlim();
 
+        public static Func<IOwinContext, string> MultiTenantRealmSelector;
+
         // Thread-safe pipeline locks
         private bool _cacheRefreshing;
         private DateTime _nextCachedRefreshTime;
 
-        protected OidcDataManager(IKeycloakParameters options)
+        protected OidcDataManager(IOwinContext context, IKeycloakParameters options)
         {
             _options = options;
             _nextCachedRefreshTime = DateTime.Now;
 
-            Authority = _options.KeycloakUrl + "/realms/" + _options.Realm;
+            var realm = MultiTenantRealmSelector != null ? MultiTenantRealmSelector(context) : options.Realm;
+
+            Authority = _options.KeycloakUrl + "/realms/" + realm;
             MetadataEndpoint = new Uri(Authority + "/" + OpenIdProviderMetadataNames.Discovery);
             TokenValidationEndpoint = new Uri(Authority + "/tokens/validate");
         }
@@ -55,10 +60,10 @@ namespace KeycloakIdentityModel.Utilities
 
         #region Context Caching
 
-        public static Task ValidateCachedContextAsync(IKeycloakParameters options)
+        public static Task ValidateCachedContextAsync(IOwinContext context, IKeycloakParameters options)
         {
-            var context = GetCachedContext(options.AuthenticationType);
-            return context.ValidateCachedContextAsync();
+            return GetCachedContext(context, options.AuthenticationType)
+                .ValidateCachedContextAsync();
         }
 
         private async Task ValidateCachedContextAsync()
@@ -81,38 +86,45 @@ namespace KeycloakIdentityModel.Utilities
             }
         }
 
-        public static OidcDataManager GetCachedContext(IKeycloakParameters options)
+        public static OidcDataManager GetCachedContext(IOwinContext context, IKeycloakParameters options)
         {
-            return GetCachedContext(options.AuthenticationType);
+            return GetCachedContext(context, options.AuthenticationType);
         }
 
-        public static OidcDataManager GetCachedContext(string authType)
+        public static OidcDataManager GetCachedContext(IOwinContext context, string authType)
         {
-            var context = GetCachedContextSafe(authType);
-            if (context == null)
+            var oidc = GetCachedContextSafe(context, authType);
+            if (oidc == null)
                 throw new Exception($"Could not find cached OIDC data manager for module '{authType}'");
-            return context;
+            return oidc;
         }
 
-        public static Task<OidcDataManager> GetCachedContextAsync(IKeycloakParameters options)
+        public static Task<OidcDataManager> GetCachedContextAsync(IOwinContext context, IKeycloakParameters options)
         {
-            var context = GetCachedContextSafe(options.AuthenticationType);
-            return context != null ? Task.FromResult(context) : CreateCachedContext(options);
+            var oidc = GetCachedContextSafe(context, options.AuthenticationType);
+            return oidc != null ? Task.FromResult(oidc) : CreateCachedContext(context, options);
         }
 
-        private static OidcDataManager GetCachedContextSafe(string authType)
+        private static OidcDataManager GetCachedContextSafe(IOwinContext context, string authType)
         {
             OidcDataManager result;
-            return OidcManagerCache.TryGetValue(authType + CachedContextPostfix, out result) ? result : null;
+            var realmPrefix = GetRealmPrefix(context);
+            return OidcManagerCache.TryGetValue(realmPrefix + authType + CachedContextPostfix, out result) ? result : null;
         }
 
-        public static async Task<OidcDataManager> CreateCachedContext(IKeycloakParameters options,
+        private static async Task<OidcDataManager> CreateCachedContext(IOwinContext context, IKeycloakParameters options,
             bool preload = true)
         {
-            var newContext = new OidcDataManager(options);
-            OidcManagerCache[options.AuthenticationType + CachedContextPostfix] = newContext;
+            var newContext = new OidcDataManager(context, options);
+            var realmPrefix = GetRealmPrefix(context);
+            OidcManagerCache[realmPrefix + options.AuthenticationType + CachedContextPostfix] = newContext;
             if (preload) await newContext.ValidateCachedContextAsync();
             return newContext;
+        }
+
+        private static string GetRealmPrefix(IOwinContext context)
+        {
+            return MultiTenantRealmSelector != null ? MultiTenantRealmSelector(context) + "_": "";
         }
 
         #endregion
@@ -135,7 +147,8 @@ namespace KeycloakIdentityModel.Utilities
         public async Task RefreshMetadataAsync()
         {
             // Get Metadata from endpoint
-            var dataTask = HttpApiGet(MetadataEndpoint);
+            var metadataEndpoint = MetadataEndpoint;
+            var dataTask = HttpApiGet(metadataEndpoint);
 
             // Try to get the JSON metadata object
             JObject json;
@@ -147,7 +160,7 @@ namespace KeycloakIdentityModel.Utilities
             {
                 // Fail on invalid JSON
                 throw new Exception(
-                    $"RefreshMetadataAsync: Metadata address returned invalid JSON object ('{MetadataEndpoint}')",
+                    $"RefreshMetadataAsync: Metadata address returned invalid JSON object ('{metadataEndpoint}')",
                     exception);
             }
 
@@ -187,7 +200,7 @@ namespace KeycloakIdentityModel.Utilities
             {
                 // Fail on invalid URI or metadata
                 throw new Exception(
-                    $"RefreshMetadataAsync: Metadata address returned incomplete data ('{MetadataEndpoint}')", exception);
+                    $"RefreshMetadataAsync: Metadata address returned incomplete data ('{metadataEndpoint}')", exception);
             }
         }
 

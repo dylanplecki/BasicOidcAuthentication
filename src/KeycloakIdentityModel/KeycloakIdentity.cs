@@ -14,6 +14,7 @@ using KeycloakIdentityModel.Models.Messages;
 using KeycloakIdentityModel.Models.Responses;
 using KeycloakIdentityModel.Utilities;
 using KeycloakIdentityModel.Utilities.ClaimMapping;
+using Microsoft.Owin;
 using Newtonsoft.Json.Linq;
 
 namespace KeycloakIdentityModel
@@ -124,34 +125,35 @@ namespace KeycloakIdentityModel
         /// <returns></returns>
         public override ClaimsIdentity Clone()
         {
-            return Task.Run(ToClaimsIdentityAsync).Result;
+            throw new NotImplementedException();
+            //return Task.Run(() => ToClaimsIdentityAsync(context)).Result;
         }
 
         /// <summary>
         ///     Refreshes and re-authenticates the current identity from the Keycloak instance (only if necessary)
         /// </summary>
         /// <returns></returns>
-        public Task RefreshIdentityAsync()
+        public Task RefreshIdentityAsync(IOwinContext context)
         {
-            return GetClaimsAsync();
+            return GetClaimsAsync(context);
         }
 
         /// <summary>
         ///     Refreshes and returns the updated claims for the identity (refreshes only if necessary)
         /// </summary>
         /// <returns></returns>
-        public Task<IEnumerable<Claim>> GetUpdatedClaimsAsync()
+        public Task<IEnumerable<Claim>> GetUpdatedClaimsAsync(IOwinContext context)
         {
-            return GetClaimsAsync();
+            return GetClaimsAsync(context);
         }
 
         /// <summary>
         ///     Returns a static base representation of the identity as a claims identity
         /// </summary>
         /// <returns></returns>
-        public async Task<ClaimsIdentity> ToClaimsIdentityAsync()
+        public async Task<ClaimsIdentity> ToClaimsIdentityAsync(IOwinContext context)
         {
-            return new ClaimsIdentity(await GetClaimsAsync(), AuthenticationType);
+            return new ClaimsIdentity(await GetClaimsAsync(context), AuthenticationType);
         }
 
         #endregion
@@ -164,12 +166,12 @@ namespace KeycloakIdentityModel
         /// <param name="parameters"></param>
         /// <param name="identity"></param>
         /// <returns></returns>
-        public static Task<KeycloakIdentity> ConvertFromClaimsIdentityAsync(IKeycloakParameters parameters,
+        public static Task<KeycloakIdentity> ConvertFromClaimsIdentityAsync(IOwinContext context, IKeycloakParameters parameters,
             ClaimsIdentity identity)
         {
             if (parameters == null) throw new ArgumentNullException(nameof(parameters));
             if (identity == null) throw new ArgumentNullException(nameof(identity));
-            return ConvertFromClaimsAsync(parameters, identity.Claims);
+            return ConvertFromClaimsAsync(context, parameters, identity.Claims);
         }
 
         /// <summary>
@@ -178,7 +180,7 @@ namespace KeycloakIdentityModel
         /// <param name="parameters"></param>
         /// <param name="claims"></param>
         /// <returns></returns>
-        public static Task<KeycloakIdentity> ConvertFromClaimsAsync(IKeycloakParameters parameters,
+        public static Task<KeycloakIdentity> ConvertFromClaimsAsync(IOwinContext context, IKeycloakParameters parameters,
             IEnumerable<Claim> claims)
         {
             if (parameters == null) throw new ArgumentNullException(nameof(parameters));
@@ -189,7 +191,7 @@ namespace KeycloakIdentityModel
             var accessToken = claimLookup[Constants.ClaimTypes.AccessToken].FirstOrDefault();
             var refreshToken = claimLookup[Constants.ClaimTypes.RefreshToken].FirstOrDefault();
 
-            return ConvertFromJwtAsync(parameters, accessToken, refreshToken, idToken);
+            return ConvertFromJwtAsync(context, parameters, accessToken, refreshToken, idToken);
         }
 
         /// <summary>
@@ -198,12 +200,12 @@ namespace KeycloakIdentityModel
         /// <param name="parameters"></param>
         /// <param name="message"></param>
         /// <returns></returns>
-        public static Task<KeycloakIdentity> ConvertFromTokenResponseAsync(IKeycloakParameters parameters,
+        public static Task<KeycloakIdentity> ConvertFromTokenResponseAsync(IOwinContext context, IKeycloakParameters parameters,
             TokenResponse message)
         {
             if (parameters == null) throw new ArgumentNullException(nameof(parameters));
             if (message == null) throw new ArgumentNullException(nameof(message));
-            return ConvertFromJwtAsync(parameters, message.AccessToken, message.RefreshToken, message.IdToken);
+            return ConvertFromJwtAsync(context, parameters, message.AccessToken, message.RefreshToken, message.IdToken);
         }
 
         /// <summary>
@@ -213,7 +215,7 @@ namespace KeycloakIdentityModel
         /// <param name="response"></param>
         /// <param name="baseUri"></param>
         /// <returns></returns>
-        public static async Task<KeycloakIdentity> ConvertFromAuthResponseAsync(IKeycloakParameters parameters,
+        public static async Task<KeycloakIdentity> ConvertFromAuthResponseAsync(IOwinContext context, IKeycloakParameters parameters,
             AuthorizationResponse response, Uri baseUri)
         {
             if (parameters == null) throw new ArgumentNullException(nameof(parameters));
@@ -221,8 +223,8 @@ namespace KeycloakIdentityModel
             if (baseUri == null) throw new ArgumentNullException(nameof(baseUri));
 
             response.ThrowIfError();
-            var message = new RequestAccessTokenMessage(baseUri, parameters, response);
-            return await ConvertFromTokenResponseAsync(parameters, await message.ExecuteAsync());
+            var message = new RequestAccessTokenMessage(context, baseUri, parameters, response);
+            return await ConvertFromTokenResponseAsync(context, parameters, await message.ExecuteAsync());
         }
 
         /// <summary>
@@ -233,7 +235,7 @@ namespace KeycloakIdentityModel
         /// <param name="refreshToken"></param>
         /// <param name="idToken"></param>
         /// <returns></returns>
-        public static async Task<KeycloakIdentity> ConvertFromJwtAsync(IKeycloakParameters parameters,
+        public static async Task<KeycloakIdentity> ConvertFromJwtAsync(IOwinContext context, IKeycloakParameters parameters,
             string accessToken, string refreshToken = null, string idToken = null)
         {
             if (parameters == null) throw new ArgumentNullException(nameof(parameters));
@@ -242,12 +244,12 @@ namespace KeycloakIdentityModel
             var kcIdentity = new KeycloakIdentity(parameters);
             try
             {
-                await kcIdentity.CopyFromJwt(accessToken, refreshToken, idToken);
+                await kcIdentity.CopyFromJwt(context, accessToken, refreshToken, idToken);
             }
             catch (SecurityTokenExpiredException)
             {
                 // Load new identity from token endpoint via refresh token (if possible)
-                await kcIdentity.RefreshIdentity(refreshToken);
+                await kcIdentity.RefreshIdentity(context, refreshToken);
             }
             return kcIdentity;
         }
@@ -259,14 +261,14 @@ namespace KeycloakIdentityModel
         /// <param name="baseUri"></param>
         /// <param name="state"></param>
         /// <returns></returns>
-        public static async Task<Uri> GenerateLoginUriAsync(IKeycloakParameters parameters, Uri baseUri,
+        public static async Task<Uri> GenerateLoginUriAsync(IOwinContext context, IKeycloakParameters parameters, Uri baseUri,
             string state = null)
         {
             if (parameters == null) throw new ArgumentNullException(nameof(parameters));
             if (baseUri == null) throw new ArgumentNullException(nameof(baseUri));
 
             // Generate login URI and data
-            var uriManager = await OidcDataManager.GetCachedContextAsync(parameters);
+            var uriManager = await OidcDataManager.GetCachedContextAsync(context, parameters);
             var loginParams = uriManager.BuildAuthorizationEndpointContent(baseUri, state ?? Guid.NewGuid().ToString());
             var loginUrl = uriManager.GetAuthorizationEndpoint();
 
@@ -281,12 +283,12 @@ namespace KeycloakIdentityModel
         /// <param name="parameters"></param>
         /// <param name="baseUri"></param>
         /// <returns></returns>
-        public static async Task<Uri> GenerateLoginCallbackUriAsync(IKeycloakParameters parameters, Uri baseUri)
+        public static async Task<Uri> GenerateLoginCallbackUriAsync(IOwinContext context, IKeycloakParameters parameters, Uri baseUri)
         {
             if (parameters == null) throw new ArgumentNullException(nameof(parameters));
             if (baseUri == null) throw new ArgumentNullException(nameof(baseUri));
 
-            return (await OidcDataManager.GetCachedContextAsync(parameters)).GetCallbackUri(baseUri);
+            return (await OidcDataManager.GetCachedContextAsync(context, parameters)).GetCallbackUri(baseUri);
         }
 
         /// <summary>
@@ -296,14 +298,14 @@ namespace KeycloakIdentityModel
         /// <param name="baseUri"></param>
         /// <param name="redirectUrl"></param>
         /// <returns></returns>
-        public static async Task<Uri> GenerateLogoutUriAsync(IKeycloakParameters parameters, Uri baseUri,
+        public static async Task<Uri> GenerateLogoutUriAsync(IOwinContext context, IKeycloakParameters parameters, Uri baseUri,
             string redirectUrl = null)
         {
             if (parameters == null) throw new ArgumentNullException(nameof(parameters));
             if (baseUri == null) throw new ArgumentNullException(nameof(baseUri));
 
             // Generate logout URI and data
-            var uriManager = await OidcDataManager.GetCachedContextAsync(parameters);
+            var uriManager = await OidcDataManager.GetCachedContextAsync(context, parameters);
             var logoutParams = uriManager.BuildEndSessionEndpointContent(baseUri, null, redirectUrl);
             var logoutUrl = uriManager.GetEndSessionEndpoint();
 
@@ -317,7 +319,7 @@ namespace KeycloakIdentityModel
         /// </summary>
         /// <param name="parameters"></param>
         /// <returns></returns>
-        public static bool TryValidateParameters(IKeycloakParameters parameters)
+        public static bool TryValidateParameters(IOwinContext context, IKeycloakParameters parameters)
         {
             try
             {
@@ -342,7 +344,7 @@ namespace KeycloakIdentityModel
             // Verify required parameters
             if (parameters.KeycloakUrl == null)
                 throw new ArgumentNullException(nameof(parameters.KeycloakUrl));
-            if (parameters.Realm == null)
+            if (parameters.Realm == null && parameters.MultiTenantRealmSelector == null)
                 throw new ArgumentNullException(nameof(parameters.Realm));
 
             // Set default parameters
@@ -362,17 +364,6 @@ namespace KeycloakIdentityModel
             if (parameters.PostLogoutRedirectUrl != null &&
                 !Uri.IsWellFormedUriString(parameters.PostLogoutRedirectUrl, UriKind.RelativeOrAbsolute))
                 throw new ArgumentException(nameof(parameters.PostLogoutRedirectUrl));
-
-            // Attempt to refresh OIDC metadata from endpoint (on separate thread)
-            try
-            {
-                Task.Run(() => OidcDataManager.GetCachedContextAsync(parameters)).Wait();
-            }
-            catch (Exception exception)
-            {
-                throw new ArgumentException("Invalid Keycloak server parameters specified: See inner for server error",
-                    exception);
-            }
         }
 
         #endregion
@@ -430,7 +421,7 @@ namespace KeycloakIdentityModel
             return _kcClaims.Concat(_userClaims);
         }
 
-        private async Task<IEnumerable<Claim>> GetClaimsAsync()
+        private async Task<IEnumerable<Claim>> GetClaimsAsync(IOwinContext context)
         {
             await _refreshLock.WaitAsync();
             try
@@ -443,7 +434,7 @@ namespace KeycloakIdentityModel
                         throw new Exception("Both the access token and the refresh token have expired");
 
                     // Load new identity from token endpoint via refresh token
-                    await RefreshIdentity(_refreshToken.RawData);
+                    await RefreshIdentity(context, _refreshToken.RawData);
                 }
 
                 return GetCurrentClaims();
@@ -454,13 +445,13 @@ namespace KeycloakIdentityModel
             }
         }
 
-        protected async Task CopyFromJwt(string accessToken, string refreshToken = null, string idToken = null)
+        protected async Task CopyFromJwt(IOwinContext context, string accessToken, string refreshToken = null, string idToken = null)
         {
             if (accessToken == null) throw new ArgumentException(nameof(accessToken));
 
             // Validate JWTs provided
             var tokenHandler = new KeycloakTokenHandler();
-            var uriManager = await OidcDataManager.GetCachedContextAsync(_parameters);
+            var uriManager = await OidcDataManager.GetCachedContextAsync(context, _parameters);
 
             SecurityToken accessSecurityToken, idSecurityToken = null, refreshSecurityToken = null;
 
@@ -491,11 +482,11 @@ namespace KeycloakIdentityModel
             _refreshToken = refreshSecurityToken as JwtSecurityToken;
         }
 
-        protected async Task RefreshIdentity(string refreshToken)
+        protected async Task RefreshIdentity(IOwinContext context, string refreshToken)
         {
             var respMessage =
-                        await new RefreshAccessTokenMessage(_parameters, refreshToken).ExecuteAsync();
-            await CopyFromJwt(respMessage.AccessToken, respMessage.RefreshToken, respMessage.IdToken);
+                        await new RefreshAccessTokenMessage(context, _parameters, refreshToken).ExecuteAsync();
+            await CopyFromJwt(context, respMessage.AccessToken, respMessage.RefreshToken, respMessage.IdToken);
             IsTouched = true;
         }
 

@@ -1,4 +1,5 @@
 ﻿using System;
+using Microsoft.Owin;
 
 namespace KeycloakIdentityModel.Models.Configuration
 {
@@ -22,6 +23,14 @@ namespace KeycloakIdentityModel.Models.Configuration
         ///     The Keycloak realm on which the client is located
         /// </summary>
         public string Realm { get; set; }
+
+        /// <summary>
+        ///     OPTIONAL: The MultiTenantRealmSelector is used to dynamically set the Realm for multi-tenant applications.
+        /// </summary>
+        /// <remarks>
+        ///     - The purpose is for multi-tenant platforms that require multiple Realms.
+        /// </remarks>
+        public Func<IOwinContext, string> MultiTenantRealmSelector { get; set; }
 
         /// <summary>
         ///     The client ID to use for the application

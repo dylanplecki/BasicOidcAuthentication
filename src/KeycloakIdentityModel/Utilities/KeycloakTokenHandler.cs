@@ -6,14 +6,15 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using KeycloakIdentityModel.Models.Configuration;
 using Microsoft.IdentityModel;
+using Microsoft.Owin;
 
 namespace KeycloakIdentityModel.Utilities
 {
     internal class KeycloakTokenHandler : JwtSecurityTokenHandler
     {
-        public static async Task<SecurityToken> ValidateTokenRemote(string jwt, IKeycloakParameters options)
+        public static async Task<SecurityToken> ValidateTokenRemote(IOwinContext context, string jwt, IKeycloakParameters options)
         {
-            var uriManager = await OidcDataManager.GetCachedContextAsync(options);
+            var uriManager = await OidcDataManager.GetCachedContextAsync(context, options);
             return await ValidateTokenRemote(jwt, uriManager);
         }
 
@@ -48,9 +49,9 @@ namespace KeycloakIdentityModel.Utilities
             }
         }
 
-        public async Task<SecurityToken> ValidateTokenAsync(string jwt, IKeycloakParameters options)
+        public async Task<SecurityToken> ValidateTokenAsync(IOwinContext context, string jwt, IKeycloakParameters options)
         {
-            var uriManager = await OidcDataManager.GetCachedContextAsync(options);
+            var uriManager = await OidcDataManager.GetCachedContextAsync(context, options);
             return ValidateToken(jwt, options, uriManager);
         }
 

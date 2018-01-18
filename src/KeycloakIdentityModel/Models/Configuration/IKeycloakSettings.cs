@@ -1,4 +1,5 @@
 ﻿using System;
+using Microsoft.Owin;
 
 namespace KeycloakIdentityModel.Models.Configuration
 {
@@ -7,6 +8,7 @@ namespace KeycloakIdentityModel.Models.Configuration
         string AuthenticationType { get; }
         string KeycloakUrl { get; }
         string Realm { get; }
+        Func<IOwinContext, string> MultiTenantRealmSelector { get; }
         string ClientId { get; }
         string ClientSecret { get; }
         string Scope { get; }

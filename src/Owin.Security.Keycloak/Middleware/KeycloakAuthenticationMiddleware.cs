@@ -36,7 +36,7 @@ namespace Owin.Security.Keycloak.Middleware
             // Verify required options
             if (Options.KeycloakUrl == null)
                 ThrowOptionNotFound(nameof(Options.KeycloakUrl));
-            if (Options.Realm == null)
+            if (Options.Realm == null && Options.MultiTenantRealmSelector == null)
                 ThrowOptionNotFound(nameof(Options.Realm));
 
             // Load web root path from config

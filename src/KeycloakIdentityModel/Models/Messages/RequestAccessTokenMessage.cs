@@ -3,12 +3,13 @@ using System.Threading.Tasks;
 using KeycloakIdentityModel.Models.Configuration;
 using KeycloakIdentityModel.Models.Responses;
 using KeycloakIdentityModel.Utilities;
+using Microsoft.Owin;
 
 namespace KeycloakIdentityModel.Models.Messages
 {
     public class RequestAccessTokenMessage : GenericMessage<TokenResponse>
     {
-        public RequestAccessTokenMessage(Uri baseUri, IKeycloakParameters options,
+        public RequestAccessTokenMessage(IOwinContext context, Uri baseUri, IKeycloakParameters options,
             AuthorizationResponse authResponse)
             : base(options)
         {
@@ -17,10 +18,12 @@ namespace KeycloakIdentityModel.Models.Messages
 
             BaseUri = baseUri;
             AuthResponse = authResponse;
+            Context = context;
         }
 
         protected Uri BaseUri { get; }
         private AuthorizationResponse AuthResponse { get; }
+        private IOwinContext Context { get; }
 
         public override async Task<TokenResponse> ExecuteAsync()
         {
@@ -29,7 +32,7 @@ namespace KeycloakIdentityModel.Models.Messages
 
         private async Task<string> ExecuteHttpRequestAsync()
         {
-            var uriManager = await OidcDataManager.GetCachedContextAsync(Options);
+            var uriManager = await OidcDataManager.GetCachedContextAsync(Context, Options);
             var response = await SendHttpPostRequest(uriManager.GetTokenEndpoint(),
                 uriManager.BuildAccessTokenEndpointContent(BaseUri, AuthResponse.Code));
             return await response.Content.ReadAsStringAsync();
