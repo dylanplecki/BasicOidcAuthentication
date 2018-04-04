@@ -1,5 +1,7 @@
 ﻿using System;
 using KeycloakIdentityModel.Models.Configuration;
+using KeycloakIdentityModel.Models.EventArgs;
+using Microsoft.Owin;
 using Microsoft.Owin.Security;
 
 namespace Owin.Security.Keycloak
@@ -191,5 +193,10 @@ namespace Owin.Security.Keycloak
 
         public string CallbackPath { get; set; }
         public string ResponseType { get; set; }
+
+        /// <summary>
+        ///     OPTIONAL: Triggers <see cref="Action"/> to fire after a successful authentication.
+        /// </summary>
+        public Action<IOwinContext, OnAuthenticatedEventArgs> OnAuthenticated { get; set; }
     }
 }

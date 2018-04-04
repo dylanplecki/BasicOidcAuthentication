@@ -69,6 +69,7 @@
     <Compile Include="Models\Configuration\IKeycloakSettings.cs" />
     <Compile Include="Extensions\DateTimeExtension.cs" />
     <Compile Include="Extensions\JwtSecurityTokenExtension.cs" />
+    <Compile Include="Models\EventArgs\OnAuthenticatedEventArgs.cs" />
     <Compile Include="Utilities\ClaimMapping\ClaimLookup.cs" />
     <Compile Include="Utilities\ClaimMapping\ClaimMappings.cs" />
     <Compile Include="Global.cs" />

@@ -8,6 +8,7 @@ using System.Security.Authentication;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using KeycloakIdentityModel;
+using KeycloakIdentityModel.Models.EventArgs;
 using KeycloakIdentityModel.Models.Responses;
 using Microsoft.Owin;
 using Microsoft.Owin.Security;
@@ -79,14 +80,19 @@ namespace Owin.Security.Keycloak.Middleware
                     var kcIdentity =
                         await KeycloakIdentity.ConvertFromAuthResponseAsync(Options, authResult, Request.Uri);
                     var identity = await kcIdentity.ToClaimsIdentityAsync();
-                    Context.Authentication.User.AddIdentity(identity);
+
+                    Context.Authentication.User = new ClaimsPrincipal(identity);
                     SignInAsAuthentication(identity, properties, Options.SignInAsAuthenticationType);
 
+                    // Trigger OnAuthenticated?
+                    var eventArgs = new OnAuthenticatedEventArgs { RedirectUri = properties.RedirectUri };
+                    Options.OnAuthenticated?.Invoke(Context, eventArgs);
+
                     // Redirect back to the original secured resource, if any
-                    if (!string.IsNullOrWhiteSpace(properties.RedirectUri) &&
-                        Uri.IsWellFormedUriString(properties.RedirectUri, UriKind.Absolute))
+                    if (!string.IsNullOrWhiteSpace(eventArgs.RedirectUri) &&
+                        Uri.IsWellFormedUriString(eventArgs.RedirectUri, UriKind.Absolute))
                     {
-                        Response.Redirect(properties.RedirectUri);
+                        Response.Redirect(eventArgs.RedirectUri);
                         return true;
                     }
                 }
