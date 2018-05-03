@@ -6,9 +6,9 @@ using Newtonsoft.Json.Linq;
 
 namespace KeycloakIdentityModel.Utilities.ClaimMapping
 {
-    internal static class ClaimMappings
+    public static class ClaimMappings
     {
-        public static IEnumerable<ClaimLookup> AccessTokenMappings { get; } = new List<ClaimLookup>
+        private static readonly List<ClaimLookup> AccessTokenMappingList = new List<ClaimLookup>
         {
             new ClaimLookup
             {
@@ -66,9 +66,11 @@ namespace KeycloakIdentityModel.Utilities.ClaimMapping
             }
         };
 
-        public static IEnumerable<ClaimLookup> IdTokenMappings { get; } = new List<ClaimLookup>();
+        internal static IEnumerable<ClaimLookup> AccessTokenMappings { get; } = AccessTokenMappingList;
 
-        public static IEnumerable<ClaimLookup> RefreshTokenMappings { get; } = new List<ClaimLookup>
+        internal static IEnumerable<ClaimLookup> IdTokenMappings { get; } = new List<ClaimLookup>();
+
+        internal static IEnumerable<ClaimLookup> RefreshTokenMappings { get; } = new List<ClaimLookup>
         {
             new ClaimLookup
             {
@@ -78,5 +80,10 @@ namespace KeycloakIdentityModel.Utilities.ClaimMapping
                     token => ((token.Value<double?>() ?? 1) - 1).ToDateTime().ToString(CultureInfo.InvariantCulture)
             }
         };
+
+        public static void AddAccessTokenMappings(string claimName, string jSelectQuery)
+        {
+            AccessTokenMappingList.Add(new ClaimLookup { ClaimName = claimName, JSelectQuery = jSelectQuery });
+        }
     }
 }
