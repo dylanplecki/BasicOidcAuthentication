@@ -4,11 +4,12 @@ using System.Globalization;
 using System.IdentityModel;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Security.Authentication;
 using System.Security.Claims;
 using System.Threading.Tasks;
-using KeycloakIdentityModel;
-using KeycloakIdentityModel.Models.Responses;
+using Keycloak.IdentityModel;
+using Keycloak.IdentityModel.Models.Responses;
 using Microsoft.Owin;
 using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Infrastructure;
@@ -62,6 +63,14 @@ namespace Owin.Security.Keycloak.Middleware
             {
                 // Create authorization result from query
                 var authResult = new AuthorizationResponse(Request.Uri.Query);
+
+                // If the authorization response returned a "error" query parameter (instead of "code" + "state"), redirect to a configured URL.
+                // This could occur if the login is aborted by the user.
+                if (!authResult.IsSuccessfulResponse())
+                {
+                    HandleAuthError(authResult);
+                    return true;
+                }
 
                 try
                 {
@@ -138,7 +147,7 @@ namespace Owin.Security.Keycloak.Middleware
         private void SignInAsAuthentication(ClaimsIdentity identity, AuthenticationProperties authProperties = null,
             string signInAuthType = null)
         {
-            if (signInAuthType == Options.AuthenticationType) return;
+            if (!string.IsNullOrWhiteSpace(signInAuthType) && !signInAuthType.Equals(Options.AuthenticationType, StringComparison.OrdinalIgnoreCase)) return;
 
             var signInIdentity = signInAuthType != null
                 ? new ClaimsIdentity(identity.Claims, signInAuthType, identity.NameClaimType, identity.RoleClaimType)
@@ -226,6 +235,51 @@ namespace Owin.Security.Keycloak.Middleware
             response.ReasonPhrase = reasonPhrase;
             response.ContentType = "text/plain";
             await task;
+        }
+
+        /// <summary>
+        /// Handle the Keycloak authentication redirect to the application when it has specified an error (query parameter)
+        /// </summary>
+        /// <param name="authResult"></param>
+        private void HandleAuthError(AuthorizationResponse authResult)
+        {
+            //If a special Url has been configured to redirect to when an error was returned from Keycloak authentication, redirect the user to that Url with the error information from Keycloak as query parameters
+            if (!string.IsNullOrWhiteSpace(Options.AuthResponseErrorRedirectUrl))
+            {
+                // Build authentication error redirect URL
+                string authResponseErrorRedirectUrl = Options.AuthResponseErrorRedirectUrl;
+                if (Uri.IsWellFormedUriString(authResponseErrorRedirectUrl, UriKind.Relative))
+                {
+                    // Relative address configured. Use the current application root address as parent.
+                    string baseAddress = string.Format("{0}{1}", Request.Uri.GetLeftPart(UriPartial.Authority), Options.VirtualDirectory);
+                    authResponseErrorRedirectUrl = baseAddress + authResponseErrorRedirectUrl;
+                }
+
+                if (!Uri.IsWellFormedUriString(authResponseErrorRedirectUrl, UriKind.RelativeOrAbsolute))
+                    throw new Exception("Invalid AuthResponseErrorRedirectUrl option: Not a valid relative/absolute URL: " + authResponseErrorRedirectUrl);
+
+                // Add query parameters
+                var parameters = new Dictionary<string, string>();
+                if (!string.IsNullOrEmpty(authResult.Error))
+                    parameters.Add("error", authResult.Error);
+                if (!string.IsNullOrEmpty(authResult.ErrorDescription))
+                    parameters.Add("errordescription", authResult.ErrorDescription);
+                if (!string.IsNullOrEmpty(authResult.ErrorUri))
+                    parameters.Add("erroruri", authResult.ErrorUri);
+                var urlEncodedParameters = new FormUrlEncodedContent(parameters);
+                var authErrorQueryString = urlEncodedParameters.ReadAsStringAsync().Result;
+
+                // Build auth error redirect address with error query parameters from Keycloak.
+                var authErrorUri = new Uri(authResponseErrorRedirectUrl + (!string.IsNullOrEmpty(authErrorQueryString) ? "?" + authErrorQueryString : ""));
+
+                Response.Redirect(authErrorUri.ToString());
+            }
+            else
+            {
+                // If configured the response from the authorization endpoint indicated error (query parameter), and AuthResponseErrorRedirectUrl setting is missing, throw an exception.
+                authResult.ThrowIfError();
+            }
+
         }
 
         #endregion

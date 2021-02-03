@@ -1,9 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.24720.0
+# Visual Studio 15
+VisualStudioVersion = 15.0.26430.6
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ASP.NET MVC 4.5 Sample", "ASP.NET MVC 4.5 Sample\ASP.NET MVC 4.5 Sample.csproj", "{20F27F98-34D1-49DD-9CFB-659D9C95E6BB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StandardFlow", "StandardFlow\StandardFlow.csproj", "{B0B1234A-F748-4319-AEBB-A27DC2EADF0A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -12,11 +12,12 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{20F27F98-34D1-49DD-9CFB-659D9C95E6BB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{20F27F98-34D1-49DD-9CFB-659D9C95E6BB}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{20F27F98-34D1-49DD-9CFB-659D9C95E6BB}.Final|Any CPU.ActiveCfg = Release|Any CPU
-		{20F27F98-34D1-49DD-9CFB-659D9C95E6BB}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{20F27F98-34D1-49DD-9CFB-659D9C95E6BB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B0B1234A-F748-4319-AEBB-A27DC2EADF0A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B0B1234A-F748-4319-AEBB-A27DC2EADF0A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B0B1234A-F748-4319-AEBB-A27DC2EADF0A}.Final|Any CPU.ActiveCfg = Release|Any CPU
+		{B0B1234A-F748-4319-AEBB-A27DC2EADF0A}.Final|Any CPU.Build.0 = Release|Any CPU
+		{B0B1234A-F748-4319-AEBB-A27DC2EADF0A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B0B1234A-F748-4319-AEBB-A27DC2EADF0A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

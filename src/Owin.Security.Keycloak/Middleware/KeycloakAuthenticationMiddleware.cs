@@ -1,5 +1,5 @@
 ﻿using System;
-using KeycloakIdentityModel;
+using Keycloak.IdentityModel;
 using Microsoft.Owin;
 using Microsoft.Owin.Security;
 using Microsoft.Owin.Security.Infrastructure;

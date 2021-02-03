@@ -11,15 +11,14 @@ including roles and authorization information, into the OWIN pipeline for use in
 
 ## Documentation
 
-All relevant documentation to `Owin.Security.Keycloak` and `KeycloakIdentityModel` can be found on the [GitHub Wiki Page](https://github.com/dylanplecki/KeycloakOwinAuthentication/wiki).
+I am in the process of updating the documentation and samples. Older documentation on `Owin.Security.Keycloak` and `KeycloakIdentityModel` can be found on Dylan Plecki's [GitHub Wiki Page](https://github.com/dylanplecki/KeycloakOwinAuthentication/wiki).
 
 ## NuGet Packages
 
-For ASP.NET and OWIN functionality:
-- `Owin.Security.Keycloak` ([link](https://www.nuget.org/packages/Owin.Security.Keycloak))
+Dylan Plecki's project had two NuGet packages, one for each assembly. I have included the Keycloak.IdentityModel assembly in the Owin.Security.Keycloak-3 package so there is no longer a dependency on the KeycloakIdentityModel package.
 
-For native applications or basic functionality:
-- `KeycloakIdentityModel` ([link](https://www.nuget.org/packages/KeycloakIdentityModel))
+For ASP.NET and OWIN functionality:
+- `Owin.Security.Keycloak-3` ([link](https://www.nuget.org/packages/Owin.Security.Keycloak-3/))
 
 Required NuGet package(s) for hosting on ASP.NET / IIS:
 - `Microsoft.Owin.Host.SystemWeb` ([link](https://www.nuget.org/packages/Microsoft.Owin.Host.SystemWeb))
@@ -29,4 +28,4 @@ Recommended NuGet package(s) for hosting on ASP.NET / IIS:
 
 ## Issues & Requests
 
-Issues, feature requests, and technical help can be found at the project's [issue tracker](https://github.com/dylanplecki/KeycloakOwinAuthentication/issues) on GitHub.
+Issues, feature requests, and technical help can be found at the project's [issue tracker](https://github.com/mattmorg55/Owin.Security.Keycloak/issues) on GitHub.

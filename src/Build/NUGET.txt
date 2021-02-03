@@ -1,0 +1,1 @@
+nuget pack Owin.Security.Keycloak.csproj -Properties "Configuration=Release;FileVersion=N.N.N"
